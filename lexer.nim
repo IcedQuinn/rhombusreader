@@ -86,8 +86,12 @@ func read_strfrag(source: string; start: var int): Option[string] =
    var here = start
    while here in 0..source.high:
       if source[here] == '\"' or source[here] == '^':
+         if start != (here-1):
+            result = some[string](source.substr(start, here-1))
+         else:
+            result = some[string]("")
          start = here
-         return some[string](source.substr(start, here-1))
+         return
       inc here
 
 func read_strescape(source: string; start: var int): Option[string] =
@@ -233,12 +237,14 @@ iterator lexer*(source: string; here: var int): Token =
                   output = Token(kind: tkError)
                else:
                   output = Token(kind: tkStringEscape, sdata: escaped.get)
+               break figure_shit_out
             else:
                let frag = read_strfrag(source, here)
                if frag.is_none:
                   output = Token(kind: tkError)
                else:
                   output = Token(kind: tkStringFragment, sdata: frag.get)
+               break figure_shit_out
          else:
             if source[here] == '"':
                output = Token(kind: tkQuote)
