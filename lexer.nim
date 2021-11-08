@@ -4,6 +4,7 @@ type
    TokenKind* = enum
       ## Determines what type of token is being emitted.
       tkError
+      tkEOF
       tkComment
       tkWhitespace
       tkStringFragment
