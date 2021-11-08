@@ -66,6 +66,17 @@ func read_ident(source: string; start: var int): Option[string] =
    result = some[string](source.substr(start, here-1))
    start = here
 
+func read_anystring(source: string; start: var int): Option[string] =
+   ## Read a series of identifier characters starting with a leader.
+   if start notin 0..source.high: return none[string]()
+   var here = start
+   while here in 0..source.high:
+      if source[start].is_whitespace: break
+      inc here
+   if here != start:
+      result = some[string](source.substr(start, here-1))
+      start = here
+
 func read_strfrag(source: string; start: var int): Option[string] =
    ## Read a series of identifier characters starting with a leader.
    if start notin 0..source.high: return none[string]()
@@ -226,6 +237,19 @@ iterator lexer*(source: string; here: var int): Token =
             else:
                output = Token(kind: tkComment, sdata: comment.get)
             break figure_shit_out
+
+         block special_anystring:
+            if last == tkPercent or last == tkAt:
+               if last == tkHash:
+                  let h2 = here + 1
+                  if h2 in 0..source.high:
+                     if source[h2] == '(' or source[h2] == '{':
+                        break special_anystring
+
+               let anystr = read_anystring(source, here)
+               if anystr.is_some:
+                  output = Token(kind: tkIdentifier, sdata: anystr.get)
+                  break figure_shit_out
 
          case source[here]
          of '%': output = Token(kind: tkPercent)
