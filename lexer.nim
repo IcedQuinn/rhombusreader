@@ -68,10 +68,10 @@ func read_ident(source: string; start: var int): Option[string] =
 
 func read_anystring(source: string; start: var int): Option[string] =
    ## Read a series of identifier characters starting with a leader.
-   if start notin 0..source.high: return none[string]()
+   if start notin 0..source.high: return
    var here = start
    while here in 0..source.high:
-      if source[start].is_whitespace: break
+      if source[here].is_whitespace: break
       inc here
    if here != start:
       result = some[string](source.substr(start, here-1))
@@ -185,6 +185,19 @@ iterator lexer*(source: string; here: var int): Token =
    var last = tkError
    while here in 0..source.high:
       block figure_shit_out:
+         block special_anystring:
+            if last == tkPercent or last == tkAt or last == tkHash:
+               if last == tkHash:
+                  let h2 = here + 1
+                  if h2 in 0..source.high:
+                     if source[h2] == '(' or source[h2] == '{':
+                        break special_anystring
+
+               let anystr = read_anystring(source, here)
+               if anystr.is_some:
+                  output = Token(kind: tkIdentifier, sdata: anystr.get)
+                  break figure_shit_out
+
          let whitespace = read_whitespace(source, here)
          if whitespace.is_some:
             output = Token(kind: tkWhitespace, lines: whitespace.get)
@@ -237,19 +250,6 @@ iterator lexer*(source: string; here: var int): Token =
             else:
                output = Token(kind: tkComment, sdata: comment.get)
             break figure_shit_out
-
-         block special_anystring:
-            if last == tkPercent or last == tkAt or last == tkHash:
-               if last == tkHash:
-                  let h2 = here + 1
-                  if h2 in 0..source.high:
-                     if source[h2] == '(' or source[h2] == '{':
-                        break special_anystring
-
-               let anystr = read_anystring(source, here)
-               if anystr.is_some:
-                  output = Token(kind: tkIdentifier, sdata: anystr.get)
-                  break figure_shit_out
 
          case source[here]
          of '%': output = Token(kind: tkPercent)
