@@ -36,6 +36,8 @@ type
          sdata*: string
       of tkInteger:
          idata*: int
+      of tkWhitespace:
+         lines*: int
       else: discard
 
 func is_ident_leader(ch: char): bool =
@@ -138,12 +140,16 @@ func assemble_float(leading, trailing: Option[int]): Option[float] =
    if leading.is_none or trailing.is_none: return none[float]()
    return some[float](leading.get.float + trailing.get.decimalize)
 
-func read_whitespace(source: string; start: var int): bool =
+func read_whitespace(source: string; start: var int): Option[int] =
    if start notin 0..source.high: return
    var here = start
-   while is_whitespace(source[here]): inc here
-   result = start != here
+   var lines = 0
+   while is_whitespace(source[here]):
+      if source[here] == '\n': inc lines
+      inc here
+   if start == here: return
    start = here
+   return some[int](lines)
 
 func read_comment(source: string; start: var int): Option[string] =
    if start notin 0..source.high: return
@@ -155,7 +161,6 @@ func read_comment(source: string; start: var int): Option[string] =
       if source[here] == '\n': break
       inc here
    let close = here-1
-   discard read_whitespace(source, here)
    start = here
    return some[string](source.substr(open, close))
 
@@ -167,8 +172,9 @@ iterator lexer*(source: string; here: var int): Token =
    var last = tkError
    while here in 0..source.high:
       block figure_shit_out:
-         if read_whitespace(source, here):
-            output = Token(kind: tkWhitespace)
+         let whitespace = read_whitespace(source, here)
+         if whitespace.is_some:
+            output = Token(kind: tkWhitespace, lines: whitespace.get)
             break figure_shit_out
 
          # strings are a bit bizzare to deal with
