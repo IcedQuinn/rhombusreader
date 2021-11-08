@@ -113,6 +113,9 @@ func read_numeric(source: string; start: var int; integer: var Option[int]; bina
 
    if source[here] == '-':
       negative = true
+      inc here
+   elif source[here] == '+':
+      inc here
    elif not is_digit(source[here]):
       return
 
