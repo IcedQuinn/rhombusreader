@@ -29,6 +29,7 @@ type
       tkPeriod
       tkAt
       tkQuote
+      tkSingleQuote
 
    Token* = object
       ## Holds the kind of token and any extra details about it.
@@ -243,6 +244,7 @@ iterator lexer*(source: string; here: var int): Token =
          of '<': output = Token(kind: tkOpenAngle)
          of '>': output = Token(kind: tkCloseAngle)
          of '@': output = Token(kind: tkAt)
+         of '\'': output = Token(kind: tkSingleQuote)
          else:
             output = Token(kind: tkError)
             break figure_shit_out
