@@ -225,6 +225,7 @@ iterator lexer*(source: string; here: var int): Token =
          of tkQuote, tkStringFragment, tkStringEscape:
             if source[here] == '"':
                output = Token(kind: tkQuote)
+               inc here
                break figure_shit_out
             elif source[here] == '^':
                let escaped = read_strescape(source, here)
