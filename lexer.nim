@@ -25,7 +25,6 @@ type
       tkColon
       tkPeriod
       tkAt
-      tkX
       tkQuote
 
    Token* = object
@@ -143,19 +142,18 @@ func read_whitespace(source: string; start: var int): bool =
    if start notin 0..source.high: return
    var here = start
    while is_whitespace(source[here]): inc here
+   result = start != here
    start = here
-   return true
 
 # TODO allow long strings inside nested {}'s
 # TODO delimited strings like {foo{...}foo}
 
-iterator lexer*(source: string; start: var int): Token =
-   var here = start
+iterator lexer*(source: string; here: var int): Token =
    var output: Token
    var last = tkError
    while here in 0..source.high:
       block figure_shit_out:
-         if read_whitespace(source, start):
+         if read_whitespace(source, here):
             output = Token(kind: tkWhitespace)
             break figure_shit_out
 
@@ -166,13 +164,13 @@ iterator lexer*(source: string; start: var int): Token =
                output = Token(kind: tkQuote)
                break figure_shit_out
             elif source[here] == '^':
-               let escaped = read_strescape(source, start)
+               let escaped = read_strescape(source, here)
                if escaped.is_none:
                   output = Token(kind: tkError)
                else:
                   output = Token(kind: tkStringEscape, sdata: escaped.get)
             else:
-               let frag = read_strfrag(source, start)
+               let frag = read_strfrag(source, here)
                if frag.is_none:
                   output = Token(kind: tkError)
                else:
@@ -183,7 +181,7 @@ iterator lexer*(source: string; start: var int): Token =
                break figure_shit_out
 
          # check for a plain old identifier
-         var ident = read_ident(source, start)
+         var ident = read_ident(source, here)
          if ident.is_some:
             output = Token(kind: tkIdentifier, sdata: ident.get)
             break figure_shit_out
@@ -191,34 +189,43 @@ iterator lexer*(source: string; start: var int): Token =
          # check for an integer or binary blob
          var integer: Option[int]
          var binary: Option[string]
+         read_numeric(source, here, integer, binary)
          if integer.is_some:
             output = Token(kind: tkInteger, idata: integer.get)
             break figure_shit_out
          elif binary.is_some:
-            output = Token(kind: tkBinary, sdata: ident.get)
+            output = Token(kind: tkBinary, sdata: binary.get)
             break figure_shit_out
 
          case source[here]
-         of  '%': output = Token(kind: tkPercent)
-         of  '#': output = Token(kind: tkHash)
-         of  '$': output = Token(kind: tkDollar)
-         of  '{': output = Token(kind: tkOpenBrace)
-         of  '}': output = Token(kind: tkCloseBrace)
-         of  '(': output = Token(kind: tkOpenParenthesis)
-         of  ')': output = Token(kind: tkCloseParenthesis)
-         of  '[': output = Token(kind: tkOpenBracket)
-         of  ']': output = Token(kind: tkCloseBracket)
-         of  '/': output = Token(kind: tkPathSeparator)
-         of  '!': output = Token(kind: tkBang)
-         of  ':': output = Token(kind: tkColon)
-         of  '.': output = Token(kind: tkPeriod)
-         of  '<': output = Token(kind: tkOpenAngle)
-         of  '>': output = Token(kind: tkCloseAngle)
-         of  '@': output = Token(kind: tkAt)
-         of  'x': output = Token(kind: tkX)
-         else: output = Token(kind: tkError)
+         of '%': output = Token(kind: tkPercent)
+         of '#': output = Token(kind: tkHash)
+         of '$': output = Token(kind: tkDollar)
+         of '{': output = Token(kind: tkOpenBrace)
+         of '}': output = Token(kind: tkCloseBrace)
+         of '(': output = Token(kind: tkOpenParenthesis)
+         of ')': output = Token(kind: tkCloseParenthesis)
+         of '[': output = Token(kind: tkOpenBracket)
+         of ']': output = Token(kind: tkCloseBracket)
+         of '/': output = Token(kind: tkPathSeparator)
+         of '!': output = Token(kind: tkBang)
+         of ':': output = Token(kind: tkColon)
+         of '.': output = Token(kind: tkPeriod)
+         of '<': output = Token(kind: tkOpenAngle)
+         of '>': output = Token(kind: tkCloseAngle)
+         of '@': output = Token(kind: tkAt)
+         else:
+            output = Token(kind: tkError)
+            break figure_shit_out
+
+         inc here 
 
       last = output.kind
       yield output
+      if last == tkError: break
 
+var code = "out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7"
+var marker = 0
+for token in lexer(code, marker):
+   echo token
 
