@@ -124,8 +124,14 @@ func read_numeric(source: string; start: var int; integer: var Option[int]; bina
    # data as an encoded binary blob.
    block read_as_int:
       while here in 0..source.high:
-         if source[here] == '\'': inc here
-         if not is_digit(source[here]): break read_as_int
+         if source[here] == '\'':
+            inc here
+            continue
+         if not is_digit(source[here]):
+            if is_binary(source[here]):
+               break read_as_int
+            else:
+               break
          accum *= 10
          accum += source[here].int - '0'.int
          inc here
