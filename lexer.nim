@@ -63,7 +63,9 @@ func read_ident(source: string; start: var int): Option[string] =
    if start notin 0..source.high: return none[string]()
    var here = start
    if not is_ident_leader(source[here]): return none[string]()
-   while is_ident(source[here]): inc here
+   while here in 0..source.high:
+      if not is_ident(source[here]): break
+      inc here
    result = some[string](source.substr(start, here-1))
    start = here
 
