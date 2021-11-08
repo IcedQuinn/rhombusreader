@@ -239,7 +239,7 @@ iterator lexer*(source: string; here: var int): Token =
             break figure_shit_out
 
          block special_anystring:
-            if last == tkPercent or last == tkAt:
+            if last == tkPercent or last == tkAt or last == tkHash:
                if last == tkHash:
                   let h2 = here + 1
                   if h2 in 0..source.high:
