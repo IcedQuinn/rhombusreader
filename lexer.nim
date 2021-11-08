@@ -255,8 +255,9 @@ iterator lexer*(source: string; here: var int): Token =
       yield output
       if last == tkError: break
 
-var code = "author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7"
-var marker = 0
-for token in lexer(code, marker):
-   echo token
+when is_main_module:
+   var code = "jingle: 'jangle author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7"
+   var marker = 0
+   for token in lexer(code, marker):
+      echo token
 
