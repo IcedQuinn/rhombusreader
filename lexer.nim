@@ -33,7 +33,7 @@ type
 
    Token* = object
       ## Holds the kind of token and any extra details about it.
-      case kind: TokenKind
+      case kind*: TokenKind
       of tkStringFragment, tkStringEscape, tkIdentifier, tkBinary, tkComment:
          sdata*: string
       of tkInteger:
