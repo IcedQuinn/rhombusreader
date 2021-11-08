@@ -2,7 +2,9 @@ import options
 
 type
    TokenKind* = enum
+      ## Determines what type of token is being emitted.
       tkError
+      tkComment
       tkWhitespace
       tkStringFragment
       tkStringEscape
@@ -28,18 +30,19 @@ type
       tkQuote
 
    Token* = object
+      ## Holds the kind of token and any extra details about it.
       case kind: TokenKind
-      of tkStringFragment, tkStringEscape, tkIdentifier, tkBinary:
+      of tkStringFragment, tkStringEscape, tkIdentifier, tkBinary, tkComment:
          sdata*: string
       of tkInteger:
          idata*: int
       else: discard
 
 func is_ident_leader(ch: char): bool =
-   return ch in 'a'..'z' or ch in 'A'..'Z' or ch in '^'..'`' or ch == '&' or ch in '*'..'.' or ch in ';'..'?' or ch == '|' or ch == '~'
+   return ch in 'a'..'z' or ch in 'A'..'Z' or ch in '*'..'-' or ch in '<'..'?' or ch == '`' or ch == '|' or ch == '~'
 
 func is_ident(ch: char): bool =
-   return is_ident_leader(ch) or ch in '0'..'9' or ch == '$' or ch == '-' or ch == '@'
+   return is_ident_leader(ch) or ch in '0'..'9'
 
 func is_binary(ch: char): bool =
    return ch in '0'..'9' or ch in 'a'..'z' or ch in 'A'..'Z' or ch == '='
@@ -48,10 +51,7 @@ func is_digit(ch: char): bool =
    return ch in '0'..'9'
 
 func is_whitespace(ch: char): bool =
-   case ch
-   of ' ', '\t', '\r', '\n':
-      return true
-   else: return false
+   return ch.int in 0..32
 
 func read_ident(source: string; start: var int): Option[string] =
    ## Read a series of identifier characters starting with a leader.
@@ -145,6 +145,20 @@ func read_whitespace(source: string; start: var int): bool =
    result = start != here
    start = here
 
+func read_comment(source: string; start: var int): Option[string] =
+   if start notin 0..source.high: return
+   var here = start
+   if source[here] != ';': return
+   inc here
+   let open = here
+   while here in 0..source.high:
+      if source[here] == '\n': break
+      inc here
+   let close = here-1
+   discard read_whitespace(source, here)
+   start = here
+   return some[string](source.substr(open, close))
+
 # TODO allow long strings inside nested {}'s
 # TODO delimited strings like {foo{...}foo}
 
@@ -197,6 +211,14 @@ iterator lexer*(source: string; here: var int): Token =
             output = Token(kind: tkBinary, sdata: binary.get)
             break figure_shit_out
 
+         if source[here] == ';':
+            let comment = read_comment(source, here)
+            if comment.is_none:
+               output = Token(kind: tkError)
+            else:
+               output = Token(kind: tkComment, sdata: comment.get)
+            break figure_shit_out
+
          case source[here]
          of '%': output = Token(kind: tkPercent)
          of '#': output = Token(kind: tkHash)
@@ -224,7 +246,7 @@ iterator lexer*(source: string; here: var int): Token =
       yield output
       if last == tkError: break
 
-var code = "out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7"
+var code = "author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7"
 var marker = 0
 for token in lexer(code, marker):
    echo token
