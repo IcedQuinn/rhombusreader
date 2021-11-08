@@ -106,7 +106,7 @@ func read_strescape(source: string; start: var int): Option[string] =
          return some[string](source.substr(k, here-1))
       inc here
 
-func read_numeric(source: string; start: var int; integer: var Option[int]; binary: var Option[string]) =
+func read_numeric(source: string; start: var int; integer: var Option[int]; binary: var Option[string]; allow_binary: bool) =
    ## Read a series of digits and interpret them as an integer.
    ## Apostrophes inside an integer are ignored.
    if start notin 0..source.high: return
@@ -131,7 +131,7 @@ func read_numeric(source: string; start: var int; integer: var Option[int]; bina
             inc here
             continue
          if not is_digit(source[here]):
-            if is_binary(source[here]):
+            if is_binary(source[here]) and allow_binary:
                break read_as_int
             else:
                break
@@ -252,7 +252,8 @@ iterator lexer*(source: string; here: var int): Token =
          # check for an integer or binary blob
          var integer: Option[int]
          var binary: Option[string]
-         read_numeric(source, here, integer, binary)
+         let k = here
+         read_numeric(source, here, integer, binary, last == tkOpenBrace)
          if integer.is_some:
             output = Token(kind: tkInteger, idata: integer.get)
             break figure_shit_out
