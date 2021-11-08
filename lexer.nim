@@ -28,6 +28,7 @@ type
       tkColon
       tkPeriod
       tkAt
+      tkX
       tkQuote
       tkSingleQuote
 
@@ -210,6 +211,11 @@ iterator lexer*(source: string; here: var int): Token =
          let whitespace = read_whitespace(source, here)
          if whitespace.is_some:
             output = Token(kind: tkWhitespace, lines: whitespace.get)
+            break figure_shit_out
+
+         if source[here] == 'x':
+            output = Token(kind: tkX)
+            inc here
             break figure_shit_out
 
          # strings are a bit bizzare to deal with
