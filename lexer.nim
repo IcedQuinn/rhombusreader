@@ -248,6 +248,7 @@ iterator lexer*(source: string; here: var int): Token =
          else:
             if source[here] == '"':
                output = Token(kind: tkQuote)
+               inc here
                break figure_shit_out
 
          # check for a plain old identifier
