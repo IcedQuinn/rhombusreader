@@ -10,6 +10,7 @@ type
       nkGetPath
       nkWord
       nkBlock
+      nkParenBlock
       nkString
       nkInteger
       nkFloat
@@ -52,6 +53,7 @@ type
       psTypename
       psInteger
       psBlock
+      psBlockParen
       psPairNeedsX
       psPairNeedsInteger
       psQuotedStringInProgress
@@ -104,7 +106,7 @@ proc feed*(self: var Parser; token: Token) =
          self.vtop.children.add x
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
-         psSetWord, psGetPath:
+         psSetWord, psGetPath, psBlockParen:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -171,8 +173,31 @@ proc feed*(self: var Parser; token: Token) =
       of tkDollar: eject() # TODO
       of tkOpenBrace: eject() # TODO
       of tkCloseBrace: eject() # TODO
-      of tkOpenParenthesis: eject() # TODO
-      of tkCloseParenthesis: eject() # TODO
+      of tkOpenParenthesis:
+         case self.top
+         of psIdle:
+            # TODO check overflow policy
+            echo "PUSH DEPTH"
+            self.top = psBlockParen
+            self.state_stack.add psIdle
+            var node = Node(kind: nkParenBlock)
+            self.value_stack.add node
+            return
+         else: eject()
+      of tkCloseParenthesis:
+         case self.top
+         of psIdle:
+            echo "POP DEPTH"
+            if self.value_stack.len > 1:
+               if self.state_stack[self.state_stack.high-1] != psBlockParen:
+                  raise new_exception(Exception, "Closing block mismatch.")
+               else:
+                  discard self.state_stack.pop
+               return
+            else:
+               # TODO
+               raise new_exception(Exception, "Underflowed.")
+         else: eject()
       of tkOpenBracket:
          case self.top
          of psIdle:
@@ -189,7 +214,10 @@ proc feed*(self: var Parser; token: Token) =
          of psIdle:
             echo "POP DEPTH"
             if self.value_stack.len > 1:
-               discard self.state_stack.pop
+               if self.state_stack[self.state_stack.high-1] != psBlock:
+                  raise new_exception(Exception, "Closing block mismatch.")
+               else:
+                  discard self.state_stack.pop
                return
             else:
                # TODO
@@ -357,7 +385,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = ":fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "(big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 

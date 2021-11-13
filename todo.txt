@@ -5,7 +5,7 @@ float! @parsing
 x get-path! @parsing
 map! @parsing
 money! @parsing
-paren! @parsing
+x paren! @parsing
 path! @parsing
 percent! @parsing
 tag! @parsing
