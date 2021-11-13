@@ -1,0 +1,31 @@
+binary! @parsing
+date! @parsing
+file! @parsing
+float! @parsing
+x get-path! @parsing
+map! @parsing
+money! @parsing
+paren! @parsing
+path! @parsing
+percent! @parsing
+tag! @parsing
+time! @parsing
+tuple! @parsing
+url! @parsing
+x block! @parsing
+x char! @parsing
+x datatype! @parsing
+x email! @parsing
+x get-word! @parsing
+x integer! @parsing
+x issue! @parsing
+x lit-path! @parsing
+x lit-word! @parsing
+x pair! @parsing
+x refinement! @parsing
+x ref! @parsing
+x set-path! @parsing
+x set-word! @parsing
+x string! @parsing
+x typeset! @parsing
+x word! @parsing
