@@ -55,11 +55,13 @@ type
       psSingleQuote
       psTypename
       psInteger
+      psIntegerNeedsFloat
       psBlock
       psBlockParen
       psPairNeedsX
       psPairNeedsInteger
       psPercent
+      psFloat
       psQuotedStringInProgress
       psQuotedString
       psColon
@@ -102,7 +104,7 @@ proc feed*(self: var Parser; token: Token) =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
          psPathAwaitingWord, psEmailNeedsHostname, psQuotedStringInProgress,
-         psColon:
+         psColon, psIntegerNeedsFloat:
             # TODO proper exception
             raise new_exception(Exception,
                "Parser jammed.")
@@ -113,7 +115,7 @@ proc feed*(self: var Parser; token: Token) =
          self.vtop.children.add x
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
-         psSetWord, psGetPath, psBlockParen, psPercent:
+         psSetWord, psGetPath, psBlockParen, psPercent, psFloat:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -164,6 +166,19 @@ proc feed*(self: var Parser; token: Token) =
             var node = Node(kind: nkInteger, idata: token.idata)
             self.value_stack.add node
             return
+         of psIntegerNeedsFloat:
+            self.top = psFloat
+
+            let a = self.vtop.idata.float
+            var b = token.idata.float
+
+            # you shouldn't have negative mantissas anyway
+            if b < 0: b *= -1
+            while b > 0.9999:
+               b *= 0.1
+
+            self.vtop = Node(kind: nkFloat, fdata: a + b)
+            return
          of psPairNeedsInteger:
             self.top = psPairNeedsX
             var node = Node(kind: nkInteger, idata: token.idata)
@@ -175,6 +190,10 @@ proc feed*(self: var Parser; token: Token) =
          of psInteger:
             self.top = psPercent
             self.vtop = Node(kind: nkPercent, fdata: self.vtop.idata.float * 0.01)
+            return
+         of psFloat:
+            self.top = psPercent
+            self.vtop = Node(kind: nkPercent, fdata: self.vtop.fdata)
             return
          else: eject()
       of tkHash:
@@ -334,7 +353,12 @@ proc feed*(self: var Parser; token: Token) =
             self.top = psColon
             return
          else: eject() # TODO
-      of tkPeriod: eject() # TODO
+      of tkPeriod:
+         case self.top:
+         of psInteger:
+            self.top = psIntegerNeedsFloat
+            return
+         else: eject()
       of tkAt:
          case self.top
          of psIdle:
