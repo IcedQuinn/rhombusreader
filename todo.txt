@@ -6,7 +6,7 @@ x get-path! @parsing
 x map! @parsing
 money! @parsing
 x paren! @parsing
-path! @parsing
+x path! @parsing
 X percent! @parsing
 tag! @parsing
 time! @parsing
