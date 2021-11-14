@@ -10,6 +10,7 @@ type
       tkStringFragment
       tkStringEscape
       tkBinary
+      tkAnystring
       tkInteger
       tkPercent
       tkHash
@@ -35,7 +36,7 @@ type
    Token* = object
       ## Holds the kind of token and any extra details about it.
       case kind*: TokenKind
-      of tkStringFragment, tkStringEscape, tkIdentifier, tkBinary, tkComment:
+      of tkStringFragment, tkStringEscape, tkIdentifier, tkBinary, tkAnystring, tkComment:
          sdata*: string
       of tkInteger:
          idata*: int
@@ -216,6 +217,7 @@ iterator lexer*(source: string; here: var int): Token =
 
                let anystr = read_anystring(source, here)
                if anystr.is_some:
+                  # maybe should be anystring but hmm
                   output = Token(kind: tkIdentifier, sdata: anystr.get)
                   break figure_shit_out
 

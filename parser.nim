@@ -23,6 +23,7 @@ type
       nkRefinement
       nkPercent
       nkMapBlock
+      nkFile
 
    NodeFlag* = enum
       nfQuoted
@@ -31,7 +32,7 @@ type
       children: seq[Node]
       flags: set[NodeFlag]
       case kind: NodeKind
-      of nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString:
+      of nkFile, nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString:
          sdata: string
       of nkInteger:
          idata: int
@@ -69,6 +70,8 @@ type
       psGetWord
       psSetWord
       psMap
+      psFileNeedsPayload
+      psFile
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -106,7 +109,7 @@ proc feed*(self: var Parser; token: Token) =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
          psPathAwaitingWord, psEmailNeedsHostname, psQuotedStringInProgress,
-         psColon, psIntegerNeedsFloat:
+         psColon, psIntegerNeedsFloat, psFileNeedsPayload:
             # TODO proper exception
             raise new_exception(Exception,
                "Parser jammed.")
@@ -117,7 +120,8 @@ proc feed*(self: var Parser; token: Token) =
          self.vtop.children.add x
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
-         psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap:
+         psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
+         psFile:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -161,6 +165,7 @@ proc feed*(self: var Parser; token: Token) =
             return
          else: eject()
       of tkBinary: eject() # TODO
+      of tkAnystring: eject() # TODO
       of tkInteger:
          case self.top
          of psIdle:
@@ -189,6 +194,9 @@ proc feed*(self: var Parser; token: Token) =
          else: eject()
       of tkPercent:
          case self.top
+         of psIdle:
+            self.top = psFileNeedsPayload
+            return
          of psInteger:
             self.top = psPercent
             self.vtop = Node(kind: nkPercent, fdata: self.vtop.idata.float * 0.01)
@@ -270,6 +278,11 @@ proc feed*(self: var Parser; token: Token) =
       of tkCloseAngle: eject() # TODO
       of tkIdentifier:
          case self.top
+         of psFileNeedsPayload:
+            self.top = psFile
+            var word = Node(kind: nkFile, sdata: token.sdata)
+            self.vpush word
+            return
          of psIdle:
             self.top = psWord
             var word: Node
@@ -433,7 +446,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 
