@@ -3,7 +3,7 @@ date! @parsing
 file! @parsing
 x float! @parsing
 x get-path! @parsing
-map! @parsing
+x map! @parsing
 money! @parsing
 x paren! @parsing
 path! @parsing

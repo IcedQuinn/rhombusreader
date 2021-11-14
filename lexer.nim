@@ -201,6 +201,11 @@ iterator lexer*(source: string; here: var int): Token =
    var last = tkError
    while here in 0..source.high:
       block figure_shit_out:
+         if source[here] == '(' and last == tkHash:
+            output = Token(kind: tkOpenParenthesis)
+            inc here
+            break figure_shit_out
+
          block special_anystring:
             if last == tkPercent or last == tkAt or last == tkHash:
                if last == tkHash:
