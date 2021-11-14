@@ -21,6 +21,7 @@ type
       nkReference
       nkPath
       nkRefinement
+      nkPercent
 
    NodeFlag* = enum
       nfQuoted
@@ -33,6 +34,8 @@ type
          sdata: string
       of nkInteger:
          idata: int
+      of nkPercent, nkFloat:
+         fdata: float
       else: discard
 
    ParserState = enum
@@ -56,6 +59,7 @@ type
       psBlockParen
       psPairNeedsX
       psPairNeedsInteger
+      psPercent
       psQuotedStringInProgress
       psQuotedString
       psColon
@@ -75,6 +79,9 @@ func reset*(self: var Parser) =
 
 func vtop(self: Parser): Node =
    self.value_stack[self.value_stack.high]
+
+func `vtop=`(self: var Parser; neu: Node) =
+   self.value_stack[self.value_stack.high] = neu
 
 func vpop(self: var Parser): Node =
    return self.value_stack.pop
@@ -106,7 +113,7 @@ proc feed*(self: var Parser; token: Token) =
          self.vtop.children.add x
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
-         psSetWord, psGetPath, psBlockParen:
+         psSetWord, psGetPath, psBlockParen, psPercent:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -163,7 +170,13 @@ proc feed*(self: var Parser; token: Token) =
             self.vtop.children.add node
             return
          else: eject()
-      of tkPercent: eject() # TODO
+      of tkPercent:
+         case self.top
+         of psInteger:
+            self.top = psPercent
+            self.vtop = Node(kind: nkPercent, fdata: self.vtop.idata.float * 0.01)
+            return
+         else: eject()
       of tkHash:
          case self.top
          of psIdle:
@@ -385,7 +398,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "(big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 
