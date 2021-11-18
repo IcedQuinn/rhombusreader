@@ -24,6 +24,7 @@ type
       nkPercent
       nkMapBlock
       nkFile
+      nkBinary
 
    NodeFlag* = enum
       nfQuoted
@@ -32,7 +33,7 @@ type
       children: seq[Node]
       flags: set[NodeFlag]
       case kind: NodeKind
-      of nkFile, nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString:
+      of nkFile, nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString, nkBinary:
          sdata: string
       of nkInteger:
          idata: int
@@ -72,6 +73,8 @@ type
       psMap
       psFileNeedsPayload
       psFile
+      psBinaryNeedsPayload
+      psBinary
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -109,6 +112,7 @@ proc feed*(self: var Parser; token: Token) =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
          psPathAwaitingWord, psEmailNeedsHostname, psQuotedStringInProgress,
+         psBinaryNeedsPayload,
          psColon, psIntegerNeedsFloat, psFileNeedsPayload:
             # TODO proper exception
             raise new_exception(Exception,
@@ -121,7 +125,7 @@ proc feed*(self: var Parser; token: Token) =
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
-         psFile:
+         psFile, psBinary:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -208,13 +212,20 @@ proc feed*(self: var Parser; token: Token) =
          else: eject()
       of tkHash:
          case self.top
+         of psInteger:
+            self.top = psBinaryNeedsPayload
+            return
          of psIdle:
             self.top = psHash
             return
          else: eject()
       of tkDollar: eject() # TODO
-      of tkOpenBrace: eject() # TODO
-      of tkCloseBrace: eject() # TODO
+      of tkOpenBrace:
+         case self.top
+         else: eject()
+      of tkCloseBrace:
+         case self.top
+         else: eject()
       of tkOpenParenthesis:
          case self.top
          of psHash:
@@ -278,6 +289,21 @@ proc feed*(self: var Parser; token: Token) =
       of tkCloseAngle: eject() # TODO
       of tkIdentifier:
          case self.top
+         of psBinaryNeedsPayload:
+            if token.sdata.len < 3:
+               eject()
+               return
+            if token.sdata[0] != '{' and token.sdata[token.sdata.high] == '}':
+               eject()
+               return
+
+            let base = self.vpop
+            var bub = Node(kind: nkBinary, sdata: token.sdata)
+            bub.children.add base
+            # TODO need to decode this data payload
+            self.top = psBinary
+            self.value_stack.add bub
+            return
          of psFileNeedsPayload:
             self.top = psFile
             var word = Node(kind: nkFile, sdata: token.sdata)
@@ -446,7 +472,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 

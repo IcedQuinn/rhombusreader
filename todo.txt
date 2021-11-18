@@ -1,4 +1,4 @@
-binary! @parsing
+x binary! @parsing
 date! @parsing
 x file! @parsing
 x float! @parsing
