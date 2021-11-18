@@ -1,34 +1,36 @@
-x binary! @parsing
-x dash based date! @parsing
-x slash based date! @parsing
-x file! @parsing
-x float! @parsing
-x get-path! @parsing
-x map! @parsing
-x money! @parsing
-x paren! @parsing
-x path! @parsing
-X percent! @parsing
-tag! @parsing
-time! @parsing
-x tuple! @parsing
-x url! @parsing
-x block! @parsing
-x char! @parsing
-x datatype! @parsing
-x email! @parsing
-x get-word! @parsing
-x integer! @parsing
-x issue! @parsing
-x lit-path! @parsing
-x lit-word! @parsing
-x pair! @parsing
-x refinement! @parsing
-x ref! @parsing
-x set-path! @parsing
-x set-word! @parsing
-x string! @parsing
-x typeset! @parsing
-x word! @parsing
+(A) tag! @parsing
+(A) time! @parsing
+(B) decode data in binary! while respecting the base provided
+benchmarks
+maximum recursion depth policy
 raw strings look like %%{...}%% with any number of %'s as long as they match
-decode data in binary! while respecting the base provided
+x (A) binary! @parsing
+x (A) block! @parsing
+x (A) char! @parsing
+x (A) dash based date! @parsing
+x (A) datatype! @parsing
+x (A) email! @parsing
+x (A) file! @parsing
+x (A) float! @parsing
+x (A) get-path! @parsing
+x (A) get-word! @parsing
+x (A) integer! @parsing
+x (A) issue! @parsing
+x (A) lit-path! @parsing
+x (A) lit-word! @parsing
+x (A) map! @parsing
+x (A) money! @parsing
+x (A) pair! @parsing
+x (A) paren! @parsing
+x (A) path! @parsing
+x (A) percent! @parsing
+x (A) refinement! @parsing
+x (A) ref! @parsing
+x (A) set-path! @parsing
+x (A) set-word! @parsing
+x (A) slash based date! @parsing
+x (A) string! @parsing
+x (A) tuple! @parsing
+x (A) typeset! @parsing
+x (A) url! @parsing
+x (A) word! @parsing
