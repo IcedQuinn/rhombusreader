@@ -1,4 +1,4 @@
-import lexer
+import options, lexer
 
 type
    NodeKind* = enum
@@ -26,6 +26,8 @@ type
       nkFile
       nkBinary
       nkDate
+      nkMoney
+      nkUrl
 
    NodeFlag* = enum
       nfQuoted
@@ -34,19 +36,20 @@ type
       children: seq[Node]
       flags: set[NodeFlag]
       case kind: NodeKind
-      of nkFile, nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString, nkBinary:
+      of nkFile, nkWord, nkSetWord, nkGetWord, nkIssue, nkReference, nkTypename, nkString, nkBinary, nkUrl:
          sdata: string
       of nkInteger:
          idata: int
       of nkPercent, nkFloat:
          fdata: float
+      of nkMoney:
+         currency: Option[string]
       else: discard
 
    ParserState = enum
       psIdle
       psWord
       psWordInsidePath
-      psEmailNeedsHostname
       psEmail
       psHash
       psIssue
@@ -75,11 +78,15 @@ type
       psFileNeedsPayload
       psFile
       psBinaryNeedsPayload
+      psBinaryNeedsOpen
+      psBinaryNeedsClose
       psBinary
       psDateSlash
       psDateSlashNeedsPayload
       psDateDash
       psDateDashNeedsPayload
+      psMoney
+      psUrl
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -116,9 +123,10 @@ proc feed*(self: var Parser; token: Token) =
    template eject() =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
-         psPathAwaitingWord, psEmailNeedsHostname, psQuotedStringInProgress,
+         psPathAwaitingWord, psQuotedStringInProgress,
          psBinaryNeedsPayload, psDateDashNeedsPayload, psDateSlashNeedsPayload,
-         psColon, psIntegerNeedsFloat, psFileNeedsPayload:
+         psColon, psIntegerNeedsFloat, psFileNeedsPayload,
+         psBinaryNeedsOpen, psBinaryNeedsClose:
             # TODO proper exception
             raise new_exception(Exception,
                "Parser jammed.")
@@ -130,7 +138,7 @@ proc feed*(self: var Parser; token: Token) =
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
-         psFile, psBinary, psDateDash, psDateSlash:
+         psFile, psBinary, psDateDash, psDateSlash, psMoney, psUrl:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -150,6 +158,22 @@ proc feed*(self: var Parser; token: Token) =
       of tkEOF:
          eject()
          return
+      of tkMoney:
+         case self.top
+         of psIdle:
+            self.top = psMoney
+            var money = Node(kind: nkMoney, currency: token.name)
+            money.children.add Node(kind: nkInteger, idata: token.amount)
+            self.value_stack.add money
+            return
+         else: eject() # TODO
+      of tkUrl:
+         case self.top
+         of psIdle:
+            self.top = psUrl
+            self.value_stack.add Node(kind: nkUrl, sdata: token.sdata)
+            return
+         else: eject() # TODO
       of tkComment:
          return # comments don't matter here
       of tkSingleQuote:
@@ -173,8 +197,15 @@ proc feed*(self: var Parser; token: Token) =
             echo "TODO string escape sequence not processed"
             return
          else: eject()
-      of tkBinary: eject() # TODO
-      of tkAnystring: eject() # TODO
+      of tkBinary:
+         case self.top:
+         of psBinaryNeedsPayload:
+            self.top = psBinaryNeedsClose
+            let base = self.vpop
+            # TODO decode binary according to base
+            self.value_stack.add Node(kind: nkBinary, sdata: "TODO")
+            return
+         else: eject() # TODO
       of tkInteger:
          case self.top
          of psDateSlashNeedsPayload:
@@ -226,7 +257,7 @@ proc feed*(self: var Parser; token: Token) =
       of tkHash:
          case self.top
          of psInteger:
-            self.top = psBinaryNeedsPayload
+            self.top = psBinaryNeedsOpen
             return
          of psIdle:
             self.top = psHash
@@ -235,9 +266,15 @@ proc feed*(self: var Parser; token: Token) =
       of tkDollar: eject() # TODO
       of tkOpenBrace:
          case self.top
+         of psBinaryNeedsOpen:
+            self.top = psBinaryNeedsPayload
+            return
          else: eject()
       of tkCloseBrace:
          case self.top
+         of psBinaryNeedsClose:
+            self.top = psBinary
+            return
          else: eject()
       of tkOpenParenthesis:
          case self.top
@@ -317,17 +354,6 @@ proc feed*(self: var Parser; token: Token) =
                continue
             self.top = psDateDashNeedsPayload
             return
-         of psBinaryNeedsPayload:
-            if token.sdata.len < 3 or token.sdata[0] != '{' and token.sdata[token.sdata.high] == '}':
-               eject()
-               continue
-            let base = self.vpop
-            var bub = Node(kind: nkBinary, sdata: token.sdata)
-            bub.children.add base
-            # TODO need to decode this data payload
-            self.top = psBinary
-            self.value_stack.add bub
-            return
          of psFileNeedsPayload:
             self.top = psFile
             var word = Node(kind: nkFile, sdata: token.sdata)
@@ -368,11 +394,6 @@ proc feed*(self: var Parser; token: Token) =
             var reference: Node
             reference = Node(kind: nkReference, sdata: token.sdata)
             self.vpush reference
-            return
-         of psEmailNeedsHostname:
-            self.top = psEmail
-            var frag = Node(kind: nkWord, sdata: token.sdata)
-            self.vtop.children.add frag
             return
          of psColon:
             self.top = psGetWord
@@ -451,30 +472,9 @@ proc feed*(self: var Parser; token: Token) =
          of psIdle:
             self.top = psAt
             return
-         of psWord:
-            echo "REWRITE email"
-            var node = Node(kind: nkEmail, children: @[self.vpop])
-            self.value_stack.add node
-            self.top = psEmailNeedsHostname
-            return
          else: eject() # TODO
       of tkX:
          case self.top
-         of psWord, psWordInsidePath:
-            self.vtop.sdata.add "x"
-            return
-         of psIdle:
-            self.top = psWord
-            var word: Node
-            word = Node(kind: nkWord, sdata: "x")
-            self.vpush word
-            return
-         of psPathAwaitingWord:
-            self.top = psWordInsidePath
-            var word: Node
-            word = Node(kind: nkWord, sdata: "x")
-            self.vpush word
-            return
          of psInteger:
             echo "REWRITE pair"
             self.top = psPairNeedsInteger

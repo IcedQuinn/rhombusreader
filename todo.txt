@@ -5,14 +5,14 @@ x file! @parsing
 x float! @parsing
 x get-path! @parsing
 x map! @parsing
-money! @parsing
+x money! @parsing
 x paren! @parsing
 x path! @parsing
 X percent! @parsing
 tag! @parsing
 time! @parsing
 tuple! @parsing
-url! @parsing
+x url! @parsing
 x block! @parsing
 x char! @parsing
 x datatype! @parsing
@@ -31,3 +31,4 @@ x string! @parsing
 x typeset! @parsing
 x word! @parsing
 raw strings look like %%{...}%% with any number of %'s as long as they match
+decode data in binary! while respecting the base provided
