@@ -11,7 +11,7 @@ x path! @parsing
 X percent! @parsing
 tag! @parsing
 time! @parsing
-tuple! @parsing
+x tuple! @parsing
 x url! @parsing
 x block! @parsing
 x char! @parsing

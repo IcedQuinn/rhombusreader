@@ -62,7 +62,8 @@ type
       psSingleQuote
       psTypename
       psInteger
-      psIntegerNeedsFloat
+      psTuple
+      psTupleNeedsFloat
       psBlock
       psBlockParen
       psPairNeedsX
@@ -120,12 +121,23 @@ func `top=`(self: var Parser; neu: ParserState) =
    self.state_stack[self.state_stack.high] = neu
 
 proc feed*(self: var Parser; token: Token) =
+   func smash_float(aa, bb: int): float =
+      var a = aa.float
+      var b = bb.float
+
+      # you shouldn't have negative mantissas anyway
+      if b < 0: b *= -1
+      while b > 0.9999:
+         b *= 0.1
+
+      return a + b
+
    template eject() =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
          psPathAwaitingWord, psQuotedStringInProgress,
          psBinaryNeedsPayload, psDateDashNeedsPayload, psDateSlashNeedsPayload,
-         psColon, psIntegerNeedsFloat, psFileNeedsPayload,
+         psColon, psTupleNeedsFloat, psFileNeedsPayload,
          psBinaryNeedsOpen, psBinaryNeedsClose:
             # TODO proper exception
             raise new_exception(Exception,
@@ -135,6 +147,18 @@ proc feed*(self: var Parser; token: Token) =
          echo "COMMIT ", self.vtop.kind
          var x = self.vpop
          self.vtop.children.add x
+      of psTuple:
+         self.top = psIdle
+         if self.vtop.children.len == 2:
+            let f = smash_float(
+               self.vtop.children[0].idata,
+               self.vtop.children[1].idata)
+            self.vtop = Node(kind: nkFloat, fdata: f)
+         else:
+            echo "COMMIT ", self.vtop.kind
+            var x = self.vpop
+            self.vtop.children.add x
+
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
@@ -221,18 +245,9 @@ proc feed*(self: var Parser; token: Token) =
             var node = Node(kind: nkInteger, idata: token.idata)
             self.value_stack.add node
             return
-         of psIntegerNeedsFloat:
-            self.top = psFloat
-
-            let a = self.vtop.idata.float
-            var b = token.idata.float
-
-            # you shouldn't have negative mantissas anyway
-            if b < 0: b *= -1
-            while b > 0.9999:
-               b *= 0.1
-
-            self.vtop = Node(kind: nkFloat, fdata: a + b)
+         of psTupleNeedsFloat:
+            self.top = psTuple
+            self.vtop.children.add Node(kind: nkInteger, idata: token.idata)
             return
          of psPairNeedsInteger:
             self.top = psPairNeedsX
@@ -249,9 +264,12 @@ proc feed*(self: var Parser; token: Token) =
             self.top = psPercent
             self.vtop = Node(kind: nkPercent, fdata: self.vtop.idata.float * 0.01)
             return
-         of psFloat:
+         of psTuple:
             self.top = psPercent
-            self.vtop = Node(kind: nkPercent, fdata: self.vtop.fdata)
+            let f = smash_float(
+               self.vtop.children[0].idata,
+               self.vtop.children[1].idata)
+            self.vtop = Node(kind: nkPercent, fdata: f * 0.01)
             return
          else: eject()
       of tkHash:
@@ -464,7 +482,13 @@ proc feed*(self: var Parser; token: Token) =
       of tkPeriod:
          case self.top:
          of psInteger:
-            self.top = psIntegerNeedsFloat
+            self.top = psTupleNeedsFloat
+            var node = Node(kind: nkTuple)
+            node.children.add self.vpop
+            self.value_stack.add node
+            return
+         of psTuple:
+            self.top = psTupleNeedsFloat
             return
          else: eject()
       of tkAt:
