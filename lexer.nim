@@ -224,6 +224,7 @@ func read_url(source: string; start: var int): Option[string] =
    # https://www.tutorialrepublic.com/html-tutorial/html-url.php
    let scheme = read_ident(source, here)
    if scheme.is_none: return
+   if scheme.get[scheme.get.high] != ':': return
    # check for the //
    if here+1 notin valid: return
    if source[here] != '/' and source[here+1] != '/': return
