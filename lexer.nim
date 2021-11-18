@@ -288,6 +288,10 @@ iterator lexer*(source: string; here: var int): Token =
                output = Token(kind: tkX)
                inc here
                break think
+            elif source[here] == '-':
+               output = Token(kind: tkIdentifier, sdata: "-")
+               inc here
+               break think
          of tkHash:
             let anystr = read_anystring(source, here)
             if anystr.is_some:
