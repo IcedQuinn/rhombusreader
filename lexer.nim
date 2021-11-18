@@ -250,6 +250,34 @@ iterator lexer*(source: string; here: var int): Token =
    var last = tkError
    while here in 0..source.high:
       block think:
+         case last
+         of tkOpenBrace:
+            let blob = read_binary(source, here)
+            if blob.is_some:
+               output = Token(kind: tkBinary, sdata: blob.get)
+               break think
+         of tkInteger:
+            if source[here] == 'x':
+               output = Token(kind: tkX)
+               inc here
+               break think
+            elif source[here] == '-':
+               output = Token(kind: tkIdentifier, sdata: "-")
+               inc here
+               break think
+         of tkHash, tkAt:
+            if source[here] != '{' and source[here] != '(':
+               let anystr = read_anystring(source, here)
+               if anystr.is_some:
+                  output = Token(kind: tkIdentifier, sdata: anystr.get)
+                  break think
+         of tkPercent:
+            let anystr = read_anystring(source, here)
+            if anystr.is_some:
+               output = Token(kind: tkIdentifier, sdata: anystr.get)
+               break think
+         else: discard
+
          block simple_symbol:
             case source[here]
             of '%': output = Token(kind: tkPercent)
@@ -278,33 +306,6 @@ iterator lexer*(source: string; here: var int): Token =
          if url.is_some:
             output = Token(kind: tkUrl, sdata: url.get)
             break think
-
-         case last
-         of tkOpenBrace:
-            let blob = read_binary(source, here)
-            if blob.is_some:
-               output = Token(kind: tkBinary, sdata: blob.get)
-               break think
-         of tkInteger:
-            if source[here] == 'x':
-               output = Token(kind: tkX)
-               inc here
-               break think
-            elif source[here] == '-':
-               output = Token(kind: tkIdentifier, sdata: "-")
-               inc here
-               break think
-         of tkHash:
-            let anystr = read_anystring(source, here)
-            if anystr.is_some:
-               output = Token(kind: tkIdentifier, sdata: anystr.get)
-               break think
-         of tkPercent:
-            let anystr = read_anystring(source, here)
-            if anystr.is_some:
-               output = Token(kind: tkIdentifier, sdata: anystr.get)
-               break think
-         else: discard
 
          let whitespace = read_whitespace(source, here)
          if whitespace.is_some:
