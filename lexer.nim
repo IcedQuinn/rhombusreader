@@ -196,6 +196,7 @@ func read_comment(source: string; start: var int): Option[string] =
 
 # TODO allow long strings inside nested {}'s
 # TODO delimited strings like {foo{...}foo}
+# XXX apparently Red has %%{..}%% where number of percents must match
 
 iterator lexer*(source: string; here: var int): Token =
    var output: Token
@@ -204,6 +205,11 @@ iterator lexer*(source: string; here: var int): Token =
       block figure_shit_out:
          if source[here] == '(' and last == tkHash:
             output = Token(kind: tkOpenParenthesis)
+            inc here
+            break figure_shit_out
+
+         if source[here] == '-' and last == tkInteger:
+            output = Token(kind: tkIdentifier, sdata: "-")
             inc here
             break figure_shit_out
 

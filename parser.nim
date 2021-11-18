@@ -25,6 +25,7 @@ type
       nkMapBlock
       nkFile
       nkBinary
+      nkDate
 
    NodeFlag* = enum
       nfQuoted
@@ -75,6 +76,10 @@ type
       psFile
       psBinaryNeedsPayload
       psBinary
+      psDateSlash
+      psDateSlashNeedsPayload
+      psDateDash
+      psDateDashNeedsPayload
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -112,7 +117,7 @@ proc feed*(self: var Parser; token: Token) =
       case self.top
       of psIdle, psHash, psAt, psSingleQuote, psPairNeedsInteger,
          psPathAwaitingWord, psEmailNeedsHostname, psQuotedStringInProgress,
-         psBinaryNeedsPayload,
+         psBinaryNeedsPayload, psDateDashNeedsPayload, psDateSlashNeedsPayload,
          psColon, psIntegerNeedsFloat, psFileNeedsPayload:
             # TODO proper exception
             raise new_exception(Exception,
@@ -125,7 +130,7 @@ proc feed*(self: var Parser; token: Token) =
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
-         psFile, psBinary:
+         psFile, psBinary, psDateDash, psDateSlash:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -172,6 +177,14 @@ proc feed*(self: var Parser; token: Token) =
       of tkAnystring: eject() # TODO
       of tkInteger:
          case self.top
+         of psDateSlashNeedsPayload:
+            self.top = psDateSlash
+            self.vtop.children.add Node(kind: nkInteger, idata: token.idata)
+            return
+         of psDateDashNeedsPayload:
+            self.top = psDateDash
+            self.vtop.children.add Node(kind: nkInteger, idata: token.idata)
+            return
          of psIdle:
             self.top = psInteger
             var node = Node(kind: nkInteger, idata: token.idata)
@@ -289,14 +302,25 @@ proc feed*(self: var Parser; token: Token) =
       of tkCloseAngle: eject() # TODO
       of tkIdentifier:
          case self.top
+         of psInteger:
+            if token.sdata.len != 1 or token.sdata[0] != '-':
+               eject()
+               continue
+            self.top = psDateDashNeedsPayload
+            var node = Node(kind: nkDate)
+            node.children.add self.vpop
+            self.value_stack.add node
+            return
+         of psDateDash:
+            if token.sdata.len != 1 or token.sdata[0] != '-':
+               eject()
+               continue
+            self.top = psDateDashNeedsPayload
+            return
          of psBinaryNeedsPayload:
-            if token.sdata.len < 3:
+            if token.sdata.len < 3 or token.sdata[0] != '{' and token.sdata[token.sdata.high] == '}':
                eject()
-               return
-            if token.sdata[0] != '{' and token.sdata[token.sdata.high] == '}':
-               eject()
-               return
-
+               continue
             let base = self.vpop
             var bub = Node(kind: nkBinary, sdata: token.sdata)
             bub.children.add base
@@ -355,6 +379,15 @@ proc feed*(self: var Parser; token: Token) =
          else: eject()
       of tkPathSeparator:
          case self.top
+         of psInteger:
+            self.top = psDateSlashNeedsPayload
+            var node = Node(kind: nkDate)
+            node.children.add self.vpop
+            self.value_stack.add node
+            return
+         of psDateSlash:
+            self.top = psDateSlashNeedsPayload
+            return
          of psIdle:
             self.top = psPath
             var path = Node(kind: nkRefinement)
@@ -472,7 +505,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 

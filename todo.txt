@@ -1,5 +1,6 @@
 x binary! @parsing
-date! @parsing
+x dash based date! @parsing
+x slash based date! @parsing
 x file! @parsing
 x float! @parsing
 x get-path! @parsing
