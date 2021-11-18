@@ -121,6 +121,7 @@ func read_strescape(source: string; start: var int): Option[string] =
    var k = here
    while here in 0..source.high:
       if source[here] == ')':
+         inc here
          start = here
          return some[string](source.substr(k, here-1))
       inc here
