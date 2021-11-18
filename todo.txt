@@ -29,3 +29,4 @@ x set-word! @parsing
 x string! @parsing
 x typeset! @parsing
 x word! @parsing
+raw strings look like %%{...}%% with any number of %'s as long as they match
