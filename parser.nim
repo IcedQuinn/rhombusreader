@@ -334,9 +334,13 @@ proc feed*(self: var Parser; token: Token) =
             self.vpush word
             return
          of psIdle:
-            self.top = psWord
             var word: Node
-            word = Node(kind: nkWord, sdata: token.sdata)
+            if token.sdata[token.sdata.high] == ':':
+               self.top = psSetWord
+               word = Node(kind: nkSetWord, sdata: token.sdata.substr(0, token.sdata.high-1))
+            else:
+               self.top = psWord
+               word = Node(kind: nkWord, sdata: token.sdata)
             self.vpush word
             return
          of psPathAwaitingWord:
@@ -505,7 +509,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 

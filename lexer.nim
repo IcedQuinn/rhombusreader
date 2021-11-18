@@ -44,20 +44,20 @@ type
          lines*: int
       else: discard
 
-func is_ident_leader(ch: char): bool =
-   return ch in 'a'..'z' or ch in 'A'..'Z' or ch in '*'..'-' or ch in '<'..'?' or ch == '`' or ch == '|' or ch == '~'
-
-func is_ident(ch: char): bool =
-   return is_ident_leader(ch) or ch in '0'..'9'
-
-func is_binary(ch: char): bool =
-   return ch in '0'..'9' or ch in 'a'..'z' or ch in 'A'..'Z' or ch == '='
+func is_whitespace(ch: char): bool =
+   return ch.int in 0..32
 
 func is_digit(ch: char): bool =
    return ch in '0'..'9'
 
-func is_whitespace(ch: char): bool =
-   return ch.int in 0..32
+func is_ident_leader(ch: char): bool =
+   return not (is_whitespace(ch) or is_digit(ch) or ch == ':' or ch == '@' or ch == '\'' or ch == '/' or ch == '%' or ch == '$' or ch == '#' or ch == '(' or ch == ')' or ch == '[' or ch == ']' or ch == '<' or ch == '>' or ch == '{' or ch == '}')
+
+func is_ident(ch: char): bool =
+   return (not is_whitespace(ch)) and (is_ident_leader(ch) or not (ch == '(' or ch == ')' or ch == '{' or ch == '}' or ch == '<' or ch == '>' or ch == '[' or ch == ']'))
+
+func is_binary(ch: char): bool =
+   return ch in '0'..'9' or ch in 'a'..'z' or ch in 'A'..'Z' or ch == '='
 
 func read_ident(source: string; start: var int): Option[string] =
    ## Read a series of identifier characters starting with a leader.
@@ -319,7 +319,7 @@ iterator lexer*(source: string; here: var int): Token =
       if last == tkError: break
 
 when is_main_module:
-   var code = "jingle: 'jangle author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x750"
+   var code = "seymore \"oh ye gods ^(steamed ham)\" jingle: 'jangle author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x750"
    var marker = 0
    for token in lexer(code, marker):
       echo token
