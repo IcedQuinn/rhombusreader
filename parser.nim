@@ -28,9 +28,12 @@ type
       nkDate
       nkMoney
       nkUrl
+      nkTag
 
    NodeFlag* = enum
-      nfQuoted
+      nfQuoted # Words and Paths can be quoted with '
+      nfSelfClosedTag # Tag ends with />
+      nfClosingTag # Tag's name begins with /
 
    Node* = ref object
       children: seq[Node]
@@ -88,6 +91,7 @@ type
       psDateDashNeedsPayload
       psMoney
       psUrl
+      psTag
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -162,7 +166,7 @@ proc feed*(self: var Parser; token: Token) =
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
-         psFile, psBinary, psDateDash, psDateSlash, psMoney, psUrl:
+         psFile, psBinary, psDateDash, psDateSlash, psMoney, psUrl, psTag:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -353,8 +357,46 @@ proc feed*(self: var Parser; token: Token) =
                # TODO
                raise new_exception(Exception, "Underflowed.")
          else: eject()
-      of tkOpenAngle: eject() # TODO
-      of tkCloseAngle: eject() # TODO
+      of tkOpenAngle:
+         case self.top
+         of psIdle:
+            # TODO check overflow policy
+            echo "PUSH DEPTH"
+            self.top = psTag
+            self.state_stack.add psIdle
+            var node = Node(kind: nkTag)
+            self.value_stack.add node
+            return
+         else: eject()
+      of tkCloseAngle:
+         echo "SHIT ", self.top
+         case self.top
+         of psIdle, psPathAwaitingWord:
+            echo "POP DEPTH"
+            if self.value_stack.len > 1:
+               echo "FART ", self.vtop[]
+               if self.top == psPathAwaitingWord:
+                  discard self.state_stack.pop
+                  # we need to potentially fix a word being turned in to
+                  # a path incorrectly by an earlier parse step
+                  if self.vtop.children.len == 0:
+                     discard self.vpop
+                     incl self.vtop.flags, nfSelfClosedTag
+                  elif self.vtop.children.len == 1:
+                     # is a word which was improperly boxed
+                     var bruh = self.vtop.children[0]
+                     discard self.vpop
+                     if self.state_stack[self.state_stack.high-1] != psTag:
+                        raise new_exception(Exception, "Closing block mismatch.")
+                     echo "FART ", self.vtop[]
+                     incl self.vtop.flags, nfSelfClosedTag
+                     self.vtop.children.add bruh
+               discard self.state_stack.pop
+               return
+            else:
+               # TODO
+               raise new_exception(Exception, "Underflowed.")
+         else: eject()
       of tkIdentifier:
          case self.top
          of psInteger:
@@ -432,6 +474,15 @@ proc feed*(self: var Parser; token: Token) =
             self.top = psDateSlashNeedsPayload
             return
          of psIdle:
+            # possibly this means we have started a closing tag
+            if self.value_stack.len > 1:
+               case self.state_stack[self.state_stack.high-1]
+               of psTag:
+                  if self.vtop.children.len == 0:
+                     incl self.vtop.flags, nfClosingTag
+                     return
+               else: discard
+            # if we haven't bailed by now, we aren't starting a closing tag
             self.top = psPath
             var path = Node(kind: nkRefinement)
             self.value_stack.add path
@@ -533,7 +584,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "<bruh> <bruh /> <bruh/> </bruh> uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 
