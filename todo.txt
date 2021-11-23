@@ -1,4 +1,3 @@
-(A) time! @parsing
 (B) decode data in binary! while respecting the base provided
 benchmarks
 maximum recursion depth policy
@@ -30,6 +29,7 @@ x (A) set-word! @parsing
 x (A) slash based date! @parsing
 x (A) string! @parsing
 x (A) tag! @parsing
+x (A) time! @parsing
 x (A) tuple! @parsing
 x (A) typeset! @parsing
 x (A) url! @parsing

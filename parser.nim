@@ -29,6 +29,7 @@ type
       nkMoney
       nkUrl
       nkTag
+      nkTime
 
    NodeFlag* = enum
       nfQuoted # Words and Paths can be quoted with '
@@ -92,6 +93,9 @@ type
       psMoney
       psUrl
       psTag
+      psTime
+      psTimeNeedsSecond
+      psTimeNeedsFraction
 
    Parser* = object
       state_stack: seq[ParserState]
@@ -142,7 +146,8 @@ proc feed*(self: var Parser; token: Token) =
          psPathAwaitingWord, psQuotedStringInProgress,
          psBinaryNeedsPayload, psDateDashNeedsPayload, psDateSlashNeedsPayload,
          psColon, psTupleNeedsFloat, psFileNeedsPayload,
-         psBinaryNeedsOpen, psBinaryNeedsClose:
+         psBinaryNeedsOpen, psBinaryNeedsClose, psTimeNeedsFraction,
+         psTimeNeedsSecond:
             # TODO proper exception
             raise new_exception(Exception,
                "Parser jammed.")
@@ -166,7 +171,8 @@ proc feed*(self: var Parser; token: Token) =
       of psWord, psIssue, psEmail, psSetPath, psQuotedString, psGetWord,
          psReference, psPath, psTypename, psInteger, psBlock, psPairNeedsX,
          psSetWord, psGetPath, psBlockParen, psPercent, psFloat, psMap,
-         psFile, psBinary, psDateDash, psDateSlash, psMoney, psUrl, psTag:
+         psFile, psBinary, psDateDash, psDateSlash, psMoney, psUrl, psTag,
+         psTime:
             echo "COMMIT ", self.vtop.kind
             self.top = psIdle
             var x = self.vpop
@@ -236,6 +242,22 @@ proc feed*(self: var Parser; token: Token) =
          else: eject() # TODO
       of tkInteger:
          case self.top
+         of psTimeNeedsFraction:
+            self.top = psTime
+            if self.vtop.children.len < 1:
+               raise new_exception(Exception, "Jammed: fraction needs an integer.")
+
+            let f = smash_float(
+               self.vtop.children[self.vtop.children.high].idata,
+               token.idata)
+            var n = Node(kind: nkFloat, fdata: f)
+            discard self.vtop.children.pop
+            self.vtop.children.add n
+            return
+         of psTimeNeedsSecond:
+            self.top = psTime
+            self.vtop.children.add Node(kind: nkInteger, idata: token.idata)
+            return 
          of psDateSlashNeedsPayload:
             self.top = psDateSlash
             self.vtop.children.add Node(kind: nkInteger, idata: token.idata)
@@ -521,6 +543,14 @@ proc feed*(self: var Parser; token: Token) =
             self.top = psSetPath
             self.vtop.kind = nkSetPath
             return
+         of psTime:
+            self.top = psTimeNeedsSecond
+            return
+         of psInteger:
+            self.top = psTimeNeedsSecond
+            var n = Node(kind: nkTime, children: @[self.vpop])
+            self.value_stack.add n
+            return
          of psWord:
             echo "REWRITE set-word"
             self.vtop.kind = nkSetWord
@@ -532,6 +562,9 @@ proc feed*(self: var Parser; token: Token) =
          else: eject() # TODO
       of tkPeriod:
          case self.top:
+         of psTime:
+            self.top = psTimeNeedsFraction
+            return
          of psInteger:
             self.top = psTupleNeedsFloat
             var node = Node(kind: nkTuple)
@@ -584,7 +617,7 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
-var code = "<bruh> <bruh /> <bruh/> </bruh> uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
+var code = "80:66:55.99 <bruh> <bruh /> <bruh/> </bruh> uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
 var parser: Parser
 reset(parser)
 
