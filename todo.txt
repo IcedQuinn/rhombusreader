@@ -1,10 +1,12 @@
-(B) decode 2-bit binary! types
-(B) decode 16-bit binary! types
-(B) decode 64-bit binary! types
+allow base64 padding inside of binary! type
 allow whitespace inside of binary! type
-default to 16-bit binary types on #{...}
+(B) decode 2-bit binary! types
+(B) decode 64-bit binary! types
 benchmarks
+(C) call decoders on binary! types on decode
+default to 16-bit binary types on #{...}
 maximum recursion depth policy
+merge whitespace checker in decodebin and lexer
 raw strings look like %%{...}%% with any number of %'s as long as they match
 x (A) binary! @parsing
 x (A) block! @parsing
@@ -38,3 +40,4 @@ x (A) tuple! @parsing
 x (A) typeset! @parsing
 x (A) url! @parsing
 x (A) word! @parsing
+x (B) decode 16-bit binary! types
