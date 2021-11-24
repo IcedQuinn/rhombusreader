@@ -1,4 +1,8 @@
-(B) decode data in binary! while respecting the base provided
+(B) decode 2-bit binary! types
+(B) decode 16-bit binary! types
+(B) decode 64-bit binary! types
+allow whitespace inside of binary! type
+default to 16-bit binary types on #{...}
 benchmarks
 maximum recursion depth policy
 raw strings look like %%{...}%% with any number of %'s as long as they match

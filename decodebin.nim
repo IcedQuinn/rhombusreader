@@ -28,32 +28,41 @@ func normalize_hexchar(ch: char): char =
 func decode2b(source: string): string =
    discard
 
-func decode16b(source: string): string =
+func decode16b*(source: string): string =
    let valid = 0..source.high
 
    var here = 0
    var builder: uint8 = 0
    var hot = false
 
+   # scan to see if we have odd number of hexes
+   var hits = 0
+   while here in valid:
+      while here in valid and is_whitespace(source[here]): inc here # skip dumbness
+      if here notin valid: break
+      if is_hexchar(normalize_hexchar(source[here])): inc hits
+      inc here
+
+   # reset pointer; mark as hot to offset all things by one byte
+   here = 0
+   if hits mod 2 > 0: hot = true
+
+   # now walk the string and decode
    while here in valid:
       # acquire pair
       while here in valid and is_whitespace(source[here]): inc here # skip dumbness
       if here notin valid: break
 
       let a = normalize_hexchar(source[here])
-      debugecho source[here]
-      debugecho a
       # TODO find correct exception
       if not a.is_hexchar: raise new_exception(Exception, "Not hexadecimal character.")
       inc here
 
       if not hot:
          builder = hexchar_to_int(a).uint8
-         debugecho builder
          hot = true
       else:
          builder = (builder shl 4) + hexchar_to_int(a).uint8
-         debugecho builder
          result.add cast[char](builder)
          builder = 0
          hot = false
@@ -65,13 +74,16 @@ func decode16b(source: string): string =
 when is_main_module:
    var a = "fF"
    let ah = decode16b(a)
-   echo ah
    assert ah[0].int == 255
 
    var b = "F"
    let bh = decode16b(b)
-   echo bh[0].int
    assert bh[0].int == 15
+
+   var c = "FF0F"
+   let ch = decode16b(c)
+   assert ch[0].int == 255
+   assert ch[1].int == 15
 
 func decode64b(source: string): string =
    discard
