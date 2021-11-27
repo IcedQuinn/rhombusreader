@@ -1,4 +1,4 @@
-import options, lexer
+import options, lexer, decodebin
 
 type
    NodeKind* = enum
@@ -236,8 +236,25 @@ proc feed*(self: var Parser; token: Token) =
          of psBinaryNeedsPayload:
             self.top = psBinaryNeedsClose
             let base = self.vpop
-            # TODO decode binary according to base
-            self.value_stack.add Node(kind: nkBinary, sdata: "TODO")
+            case base.idata
+            of 2:
+               self.value_stack.add(
+                  Node(
+                     kind: nkBinary,
+                     sdata: decode2b(token.sdata)))
+            of 16:
+               self.value_stack.add(
+                  Node(
+                     kind: nkBinary,
+                     sdata: decode16b(token.sdata)))
+            of 64:
+               self.value_stack.add(
+                  Node(
+                     kind: nkBinary,
+                     sdata: decode64b(token.sdata)))
+            else:
+               # TODO better exception
+               raise new_exception(Exception, "Can only read binary strings of radix 2, 16, or 64.")
             return
          else: eject() # TODO
       of tkInteger:

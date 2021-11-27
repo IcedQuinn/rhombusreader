@@ -25,7 +25,7 @@ func normalize_hexchar(ch: char): char =
       return (ch.int - ('a'.int - 'A'.int)).char
    return ch
 
-func decode2b(source: string): string =
+func decode2b*(source: string): string =
    # count how many bits are in source
    # figure out how many bits modulo a byte
    # first byte will be cut off after remainder
@@ -154,7 +154,7 @@ func binary_for_b64_char(ch: char): byte =
       # TODO better exception
       raise new_exception(Exception, "Not a base64 character")
 
-func decode64b(source: string): string =
+func decode64b*(source: string): string =
    let valid = 0..source.high
    var here, inshift = 0
    var inbuff: array[4, uint8]
