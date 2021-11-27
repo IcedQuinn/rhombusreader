@@ -139,5 +139,66 @@ when is_main_module:
       assert ch[0].int == 255
       assert ch[1].int == 15
 
+func binary_for_b64_char(ch: char): byte =
+   # remap from base64 to the binary mask it represents
+   if ch in 'A'..'Z':
+      result = (ch.int - 'A'.int).byte
+   elif ch in 'a'..'z':
+      result = ((ch.int - 'a'.int) + 26).byte
+   elif ch in '0'..'9':
+      result = ((ch.int - '0'.int) + 52).byte
+   elif ch == '+': result = 62'u8
+   elif ch == '/': result = 64'u8
+   elif ch == '=': result = 0'u8
+   else:
+      # TODO better exception
+      raise new_exception(Exception, "Not a base64 character")
+
 func decode64b(source: string): string =
-   discard
+   let valid = 0..source.high
+   var here, inshift = 0
+   var inbuff: array[4, uint8]
+   var outbuff: array[3, uint8]
+
+   template shuffle() =
+      outbuff[0] = (inbuff[0] shl 2) + ((inbuff[1] and 0x30) shr 4)
+      outbuff[1] = ((inbuff[1] and 0x0F) shl 4) + ((inbuff[2] and 0x3C) shr 2)
+      outbuff[2] = ((inbuff[2] and 0x03) shl 6) + inbuff[3]
+      inshift = 0
+
+   while here in valid:
+      while here in valid and is_whitespace(source[here]): inc here # skip dumbness
+      if here notin valid: break
+
+      # decode byte and store in window
+      inbuff[inshift] = binary_for_b64_char(source[here])
+      inc inshift
+      inc here
+
+      if inshift > inbuff.high:
+         shuffle()
+         for i in 0..2: result.add outbuff[i].char
+
+   if inshift > 0:
+      let k = inshift
+      for i in k..inbuff.high: inbuff[i] = 0
+      shuffle()
+      var shub = k * 6
+      var i = 0
+      while shub > 0:
+         result.add outbuff[i].char
+         dec shub, 8
+
+when is_main_module:
+   block test:
+      var a = "D"
+      let ah = decode64b(a)
+      echo ah[0].int
+      assert ah[0].int == 12
+
+      var b = "TWFu"
+      let bh = decode64b(b)
+      assert bh[0].int == 77
+      assert bh[1].int == 97
+      assert bh[2].int == 110
+
