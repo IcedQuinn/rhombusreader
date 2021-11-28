@@ -634,15 +634,19 @@ proc dump(self: Node) =
       dump(x)
    echo "<<"
 
+proc read*(code: string): Node =
+   ## Lexes and parses and entire string of Rhombus and returns the resulting block.
+   ## Will throw exceptions on parsing failures.
+   var marker = 0
+   var parser: Parser
+   reset(parser)
+   for token in lexer(code, marker):
+      echo "FEED ", token
+      feed(parser, token)
+   feed(parser, Token(kind: tkEOF))
+   if parser.value_stack.len> 0:
+      return parser.value_stack[0]
+
 var code = "80:66:55.99 <bruh> <bruh /> <bruh/> </bruh> uri: blub://fuck.com:81/butt.html 2020-01-01 2/2/2021 64#{deadbeef} model: %/model/pleroma.vrf shitmap: #(jingle: 'jangle) orange-juice: 75% pickle: 44.9% (big pan) :fiddly/sticks @reference #big-fucking-issue-555 16#{deadBEEF} subject: \"oh ye gods, ^(ham)\" :cupertino 'bollywood  /shimmy/dingdong email: icedquinn@iceworks.cc branch: #master pixel xapel/xooxpr  author: @icedquinn@blob.cat ; henlo fediblobs\n out: sample2d texture uv/xy soup [44 22] jingle: 92 + 7 450x650"
-var parser: Parser
-reset(parser)
-
-var marker = 0
-for token in lexer(code, marker):
-   echo "FEED ", token
-   feed(parser, token)
-feed(parser, Token(kind: tkEOF))
-
-dump(parser.value_stack[0])
+dump(read(code))
 
