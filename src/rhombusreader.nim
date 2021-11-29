@@ -1,4 +1,4 @@
-import options, lexer, decodebin
+import options, rhombusreader_internal.lexer, rhombusreader_internal.decodebin
 
 type
    NodeKind* = enum
